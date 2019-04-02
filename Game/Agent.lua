@@ -11,8 +11,6 @@ function Agent(x, y, image, maze, trash_mesh)
 	agent.image = image
 	agent.trash = 0
 	agent.steps = 0
-	-- copies reference
-	agent.tm = trash_mesh
 	function agent.draw()
 		-- calculations needed to align agent to center
 		local r = 0
@@ -24,116 +22,138 @@ function Agent(x, y, image, maze, trash_mesh)
 		love.graphics.rectangle("fill", x, y, agent.w, agent.h)
 	end
 
-  	function agent.senses()
-  		local x, y
-  		x = {}
-  		y = {}
+	agent.sense = {}
+	function agent.sense.r()
+		for i = agent.x, maze.width, 1 do
+			if trash_mesh.structure[i][agent.y] == 0 then
+				return math.abs(i - agent.x)
+			end
+		end
+		return 999
+	end
+	function agent.sense.l()
+		for i = agent.x, maze.width, -1 do
+			if trash_mesh.structure[i][agent.y] == 0 then
+				return math.abs(i - agent.x)
+			end
+		end
+		return 999
+	end
+	function agent.sense.u()
+		for i = agent.y, maze.height, -1 do
+			if trash_mesh.structure[agent.x][i] == 0 then
+				return math.abs(i - agent.y)
+			end
+		end
+		return 999
+	end
+	function agent.sense.d()
+		for i = agent.y, maze.height, 1  do
+			if trash_mesh.structure[agent.x][i] == 0 then
+				return math.abs(i - agent.y)
+			end
+		end
+		return 999
+	end
+
+	function agent.take_action(act)
+		if act == 1 then
+			-- print("right")
+			-- move right
+			agent.x = agent.x + 1
+			if trash_mesh.structure[agent.x][agent.y] == 0 and agent.trash == 0 then
+				trash_mesh.structure[agent.x][agent.y] = 1
+				agent.trash = 1
+			end
+		elseif act == 2 then
+			-- print("left")
+			-- move left
+			agent.x = agent.x - 1
+			-- collect
+			if trash_mesh.structure[agent.x][agent.y] == 0 and agent.trash == 0 then
+				trash_mesh.structure[agent.x][agent.y] = 1
+				agent.trash = 1
+			end
+		elseif act == 3 then
+			-- print("down")
+			-- move down
+			agent.y = agent.y + 1
+			-- collect
+			if trash_mesh.structure[agent.x][agent.y] == 0 and agent.trash == 0 then
+				trash_mesh.structure[agent.x][agent.y] = 1
+				agent.trash = 1
+			end
+		elseif act == 4 then
+			-- print("up")
+			-- move up
+			agent.y = agent.y - 1
+			-- collect
+			if trash_mesh.structure[agent.x][agent.y] == 0 and agent.trash == 0 then
+				trash_mesh.structure[agent.x][agent.y] = 1
+				agent.trash = 1
+			end
+		end
+	end
+
+	function agent.ai()
+		if agent.trash == 0 then
+			local deltas = {}
+  		deltas[1] = agent.sense.r()
+  		deltas[2] = agent.sense.l()
+  		deltas[3] = agent.sense.d()
+  		deltas[4] = agent.sense.u()
+
+  		-- init minimal value
+  		local least = deltas[1]
+  		local index = 1
+  		for i = 2, 4 do
+  			-- if there is someone bigger
+  			if least > deltas[i] then
+  				-- switch values
+  				index = i
+  				least = deltas[i]
+  			end
+  		end
   		
-  		for i = 0, table.getn(trash_mesh) do
-  			x[i] = trash_mesh.structure[i][agent.y]
-  			y[i] = trash_mesh.structure[agent.x][i]
-  		end
-  		return x, y
-  	end
+  		-- fazer varredura esquerda => direita
+  		-- ou, direita => esquerda
+  		if least == 999 then
+  			-- if left conner, go right
+  			if agent.x == 0 then
+  				go_right = true
+  				go_left = false
 
-  	function agent.take_action(act)
-  		if act == 1 then
-  			-- print("right")
-  			-- move right
-  			agent.x = agent.x + 1
-  			if trash_mesh.structure[agent.x][agent.y] == 0 and agent.trash == 0 then
-  				trash_mesh.structure[agent.x][agent.y] = 1
-  				agent.trash = 1
+  			-- if right conner, go left
+  			elseif agent.x == maze.width then
+  				go_left = true
+  				go_right = false
   			end
-  		elseif act == 2 then
-  			-- print("left")
+  			
+  			-- go right
+  			if go_right then
+  				agent.take_action(1)
+
+  			-- go left
+  			elseif go_left then
+  				agent.take_action(2)
+  			end
+  		else
+  			agent.take_action(index)
+  		end
+  	else 
+  		-- go to trash
+  		if agent.x > 0 then
   			-- move left
-  			agent.x = agent.x - 1
-  			if trash_mesh.structure[agent.x][agent.y] == 0 and agent.trash == 0 then
-  				trash_mesh.structure[agent.x][agent.y] = 1
-  				agent.trash = 1
-  			end
-  		elseif act == 3 then
-  			-- print("down")
-  			-- move down
-  			agent.y = agent.y + 1
-  			if trash_mesh.structure[agent.x][agent.y] == 0 and agent.trash == 0 then
-  				trash_mesh.structure[agent.x][agent.y] = 1
-  				agent.trash = 1
-  			end
-  		elseif act == 4 then
-  			-- print("up")
+  			agent.take_action(2)
+  		elseif agent.y > 0 then
   			-- move up
-  			agent.y = agent.y - 1
-  			if trash_mesh.structure[agent.x][agent.y] == 0 and agent.trash == 0 then
-  				trash_mesh.structure[agent.x][agent.y] = 1
-  				agent.trash = 1
-  			end
+  			agent.take_action(4)
+  		else
+  			--remove trash
+  			agent.trash = 0
   		end
-  	end
-
-  	function agent.ai()
-  		if agent.trash == 0 then
-	  		local x
-	  		local y
-	  		x, y = agent.senses()
-	  		minx = 999
-	  		miny = 999
-	  		for i = 0, table.getn(x) do
-	  			if x[i] == 1 then
-	  				if math.abs(agent.x - i) < math.abs(agent.x - minx) then
-	  					minx = i
-	  				end
-	  			end
-	  		end
-	  		for i = 0, table.getn(y) do
-	  			if y[i] == 1 then
-	  				if math.abs(agent.y - i) < math.abs(agent.y - miny) then
-	  					miny = i
-	  				end
-	  			end
-	  		end
-	  		
-	  		-- if there aint any near
-	  		if minx == 999 and miny == 999 then
-	  			agent.take_action(math.random(1, 4))
-	  		end
-	  		print(minx, miny)
-	  		-- which axis has the nearest point?
-	  		if math.abs(agent.x - minx) < math.abs(agent.y - miny) then
-	  			-- if the minimal distance x axis is greater, go right
-	  			if minx > agent.x then
-	  				agent.take_action(1)
-	  			
-	  			-- else, go left
-	  			else 
-	  				agent.take_action(2)
-	  			end
-	  		else
-	  			-- if the minimal distance y axis is greater, go down
-	  			if miny > agent.y then
-	  				agent.take_action(3)
-
-	  			-- else, go up
-	  			else
-	  				agent.take_action(4)
-	  			end
-	  		end
-	  	else 
-	  		-- go to trash
-	  		if agent.x > 0 then
-	  			-- move left
-	  			agent.take_action(2)
-	  		elseif agent.y > 0 then
-	  			-- move up
-	  			agent.take_action(3)
-	  		else
-	  			--remove trash
-	  			agent.trash = 0
-	  		end
-
-  		end
-  	end
+		end
+	end
 
 
 	return agent
